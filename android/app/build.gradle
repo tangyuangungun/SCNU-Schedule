@@ -26,8 +26,8 @@ android {
         applicationId "cn.edu.scnu.schedule"
         minSdk 26
         targetSdk 35
-        versionCode 6
-        versionName "1.4.1"
+        versionCode 7
+        versionName "1.4.2"
     }
 
     signingConfigs {
@@ -64,3 +64,4 @@ android {
         checkReleaseBuilds false
     }
 }
+

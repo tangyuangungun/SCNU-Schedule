@@ -790,7 +790,7 @@ public class MainActivity extends Activity {
         parent.addView(space(8));
         parent.addView(settingRow("上课提醒", reminderSummary(), v -> showReminderDialog()));
         parent.addView(space(8));
-        parent.addView(settingRow("桌面小组件", "小、中、大三种尺寸，长按桌面添加", v -> showWidgetHelpDialog()));
+        parent.addView(settingRow("桌面小组件", "查看 4 步图文添加教程", v -> startActivity(new Intent(this, WidgetTutorialActivity.class))));
         parent.addView(space(18));
 
         TextView aboutTitle = text("应用信息", 17, textColor(), Typeface.BOLD);
@@ -852,7 +852,7 @@ public class MainActivity extends Activity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception ignored) {
-            return "1.4.1";
+            return "1.4.2";
         }
     }
 
@@ -1382,6 +1382,7 @@ public class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
+
 
 
 

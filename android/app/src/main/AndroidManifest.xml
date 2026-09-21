@@ -28,6 +28,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".WidgetTutorialActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <receiver
             android:name=".TodayScheduleWidgetProvider"
             android:exported="false"
@@ -82,5 +86,6 @@
         </receiver>
     </application>
 </manifest>
+
 
 
