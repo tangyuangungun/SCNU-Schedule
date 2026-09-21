@@ -1,0 +1,67 @@
+{
+  "fetched_at": "2026-01-01T00:00:00+08:00",
+  "semester": "示例学年 第一学期",
+  "student": {
+    "name": "示例学生",
+    "student_id": "0000000000",
+    "department": "示例学院"
+  },
+  "courses": [
+    {
+      "course_code": "DEMO001",
+      "course_name": "示例课程一",
+      "class_name": "示例课程一01",
+      "hours": "32",
+      "credits": "2",
+      "campus": "示例校区",
+      "department": "示例学院",
+      "delivery_mode": "讲授",
+      "teaching_mode": "",
+      "teacher": "示例教师",
+      "student_count": "30",
+      "first_class_date": "2026-09-01",
+      "selection_note": "",
+      "schedule_note": "",
+      "schedule_text": "1-16周 星期一[1-2节]★示例教学楼101室",
+      "schedule": [
+        {
+          "weeks": "1-16周",
+          "weekday": "星期一",
+          "periods": "1-2节",
+          "period_start": 1,
+          "period_end": 2,
+          "time": "08:30-10:00",
+          "location": "示例教学楼101室"
+        }
+      ]
+    },
+    {
+      "course_code": "DEMO002",
+      "course_name": "示例课程二",
+      "class_name": "示例课程二01",
+      "hours": "48",
+      "credits": "3",
+      "campus": "示例校区",
+      "department": "示例学院",
+      "delivery_mode": "讲授",
+      "teaching_mode": "",
+      "teacher": "示例教师乙",
+      "student_count": "35",
+      "first_class_date": "2026-09-03",
+      "selection_note": "",
+      "schedule_note": "",
+      "schedule_text": "1-16周 星期三[5-7节]★示例教学楼202室",
+      "schedule": [
+        {
+          "weeks": "1-16周",
+          "weekday": "星期三",
+          "periods": "5-7节",
+          "period_start": 5,
+          "period_end": 7,
+          "time": "14:00-16:20",
+          "location": "示例教学楼202室"
+        }
+      ]
+    }
+  ]
+}

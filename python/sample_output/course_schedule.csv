@@ -1,0 +1,3 @@
+course_code,course_name,class_name,credits,hours,campus,department,teacher,first_class_date,weeks,weekday,periods,time,location,schedule_text
+DEMO001,示例课程一,示例课程一01,2,32,示例校区,示例学院,示例教师,2026-09-01,1-16周,星期一,1-2节,08:30-10:00,示例教学楼101室,1-16周 星期一[1-2节]★示例教学楼101室
+DEMO002,示例课程二,示例课程二01,3,48,示例校区,示例学院,示例教师乙,2026-09-03,1-16周,星期三,5-7节,14:00-16:20,示例教学楼202室,1-16周 星期三[5-7节]★示例教学楼202室

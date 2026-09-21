@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">华师课表</string>
+    <string name="widget_today_name">今日课程</string>
+    <string name="widget_week_strip_name">本周概览</string>
+    <string name="widget_week_grid_name">一周课表</string>
+    <string name="widget_today_description">显示今天的课程，适合小尺寸桌面</string>
+    <string name="widget_week_strip_description">显示一周每天课程数量，适合中等尺寸桌面</string>
+    <string name="widget_week_grid_description">显示一周课表详情，适合大尺寸桌面</string>
+    <string name="widget_no_today_courses">今天没有课程</string>
+</resources>
+
+

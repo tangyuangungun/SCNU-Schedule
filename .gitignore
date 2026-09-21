@@ -1,0 +1,37 @@
+# Android build output
+android/.gradle/
+android/local.properties
+android/**/build/
+android/.idea/
+*.iml
+
+# Packaged outputs
+outputs/*.apk
+outputs/*.zip
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local secrets and signing files
+.env
+*.keystore
+*.jks
+
+# Local Android SDK and Gradle cache
+.android-sdk/
+.gradle-home/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+
+# Private/local data
+private/
+personal/
+*.real.*
+privacy-terms.txt
+*.token
+*.secret

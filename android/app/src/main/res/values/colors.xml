@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_blue">#356A9D</color>
+    <color name="brand_blue_dark">#A8C7FA</color>
+    <color name="light_background">#F4F6F8</color>
+    <color name="dark_background">#111923</color>
+    <color name="widget_background">#FFFFFF</color>
+    <color name="widget_title">#111923</color>
+    <color name="widget_body">#536171</color>
+    <color name="widget_accent">#356A9D</color>
+    <color name="widget_divider">#DCE2E8</color>
+</resources>
+
