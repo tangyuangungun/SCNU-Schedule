@@ -3,9 +3,9 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/widget_background"
+    android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="13dp">
 
     <TextView
         android:id="@+id/widget_title"
@@ -32,7 +32,7 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="7dp"
-        android:layout_marginBottom="4dp"
+        android:layout_marginBottom="2dp"
         android:background="@color/widget_divider"
         android:text="" />
 
@@ -40,41 +40,37 @@
         android:id="@+id/widget_course_1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/widget_course_background"
         android:ellipsize="end"
-        android:maxLines="2"
+        android:lineSpacingMultiplier="1.02"
+        android:maxLines="4"
+        android:padding="9dp"
         android:textColor="@color/widget_title"
-        android:textSize="11sp" />
+        android:textSize="12sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_course_2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
+        android:background="@drawable/widget_course_background"
         android:ellipsize="end"
-        android:maxLines="2"
-        android:textColor="@color/widget_title"
-        android:textSize="11sp" />
-
-    <TextView
-        android:id="@+id/widget_course_3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:ellipsize="end"
-        android:maxLines="2"
+        android:lineSpacingMultiplier="1.02"
+        android:maxLines="3"
+        android:padding="8dp"
         android:textColor="@color/widget_title"
         android:textSize="11sp" />
 
     <TextView
         android:id="@+id/widget_empty"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center"
         android:text="@string/widget_no_today_courses"
         android:textColor="@color/widget_body"
         android:textSize="12sp"
         android:visibility="gone" />
 </LinearLayout>
-
-

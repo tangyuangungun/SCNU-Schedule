@@ -28,6 +28,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".WidgetTutorialActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <receiver
             android:name=".TodayScheduleWidgetProvider"
             android:exported="false"
@@ -64,6 +68,10 @@
                 android:resource="@xml/widget_week_grid_info" />
         </receiver>
         <service
+            android:name=".UpdateCheckJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
             android:name=".ScheduleSyncJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
@@ -82,5 +90,7 @@
         </receiver>
     </application>
 </manifest>
+
+
 
 
