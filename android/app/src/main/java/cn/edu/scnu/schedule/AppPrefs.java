@@ -32,6 +32,10 @@ public final class AppPrefs {
     private static final String REMINDERS = "reminder_minutes";
     private static final String REMINDER_TYPE = "reminder_type";
     private static final String PRIVACY_ACCEPTED = "privacy_accepted";
+    private static final String LATEST_VERSION = "latest_version";
+    private static final String LATEST_RELEASE_URL = "latest_release_url";
+    private static final String LATEST_RELEASE_NOTES = "latest_release_notes";
+    private static final String LAST_UPDATE_CHECK = "last_update_check";
 
     private static String sessionAccount = "";
     private static String sessionPassword = "";
@@ -236,6 +240,34 @@ public final class AppPrefs {
         return REMINDER_TYPE_ALARM.equals(type) ? "闹钟提醒" : "消息提醒";
     }
 
+    public static String latestVersion(Context context) {
+        return prefs(context).getString(LATEST_VERSION, "");
+    }
+
+    public static String latestReleaseUrl(Context context) {
+        return prefs(context).getString(LATEST_RELEASE_URL, "");
+    }
+
+    public static String latestReleaseNotes(Context context) {
+        return prefs(context).getString(LATEST_RELEASE_NOTES, "");
+    }
+
+    public static long lastUpdateCheck(Context context) {
+        return prefs(context).getLong(LAST_UPDATE_CHECK, 0L);
+    }
+
+    public static void saveUpdateInfo(Context context, String version, String url, String notes) {
+        prefs(context).edit()
+                .putString(LATEST_VERSION, version == null ? "" : version)
+                .putString(LATEST_RELEASE_URL, url == null ? "" : url)
+                .putString(LATEST_RELEASE_NOTES, notes == null ? "" : notes)
+                .putLong(LAST_UPDATE_CHECK, System.currentTimeMillis())
+                .apply();
+    }
+
+    public static void markUpdateCheck(Context context) {
+        prefs(context).edit().putLong(LAST_UPDATE_CHECK, System.currentTimeMillis()).apply();
+    }
     public static String frequencyLabel(String value) {
         if (FREQ_MANUAL.equals(value)) return "仅手动更新";
         if (FREQ_MONTHLY.equals(value)) return "每月自动更新";

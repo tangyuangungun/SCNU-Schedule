@@ -83,6 +83,7 @@ public class MainActivity extends Activity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private GestureDetector gestureDetector;
     private boolean switchingTab;
+    private View updateBadge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -106,7 +107,9 @@ public class MainActivity extends Activity {
         NotificationHelper.ensureChannels(this);
         SyncScheduler.schedule(this, AppPrefs.updateFrequency(this));
         if (AppPrefs.privacyAccepted(this)) {
+            UpdateCheckScheduler.schedule(this);
             render();
+            checkForUpdates(false);
         } else {
             showPrivacyDialog(true);
         }
@@ -363,7 +366,9 @@ public class MainActivity extends Activity {
         if (firstRun) {
             builder.setPositiveButton("同意并继续", (dialog, which) -> {
                 AppPrefs.setPrivacyAccepted(this, true);
+                UpdateCheckScheduler.schedule(this);
                 render();
+                checkForUpdates(false);
             }).setNegativeButton("不同意并退出", (dialog, which) -> finish());
         } else {
             builder.setPositiveButton("我知道了", null);
@@ -401,12 +406,25 @@ public class MainActivity extends Activity {
             TextView label = text(labels[i], 14, activeTab == tab ? primary() : mutedColor(),
                     activeTab == tab ? Typeface.BOLD : Typeface.NORMAL);
             label.setGravity(Gravity.CENTER);
+            FrameLayout labelHost = new FrameLayout(this);
+            labelHost.addView(label, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
+            if (tab == TAB_MORE) {
+                updateBadge = new View(this);
+                FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(dp(8), dp(8), Gravity.TOP | Gravity.END);
+                badgeParams.topMargin = dp(1);
+                badgeParams.rightMargin = dp(1);
+                updateBadge.setLayoutParams(badgeParams);
+                updateBadge.setBackground(rounded(Color.parseColor("#E5484D"), 4));
+                labelHost.addView(updateBadge);
+            }
             View indicator = new View(this);
             LinearLayout.LayoutParams indicatorParams = new LinearLayout.LayoutParams(dp(22), dp(3));
             indicatorParams.topMargin = dp(5);
             indicator.setLayoutParams(indicatorParams);
             indicator.setBackground(rounded(activeTab == tab ? primary() : Color.TRANSPARENT, 2));
-            item.addView(label);
+            item.addView(labelHost, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             item.addView(indicator);
             item.setOnClickListener(v -> switchTabAnimated(tab));
             bottomNav.addView(item, new LinearLayout.LayoutParams(0, dp(56), 1f));
@@ -414,8 +432,14 @@ public class MainActivity extends Activity {
         root.addView(bottomNav, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(66), Gravity.BOTTOM));
         bottomNav.bringToFront();
+        refreshUpdateBadge();
     }
 
+    private void refreshUpdateBadge() {
+        if (updateBadge == null) return;
+        updateBadge.setVisibility(UpdateChecker.hasCachedUpdate(this, versionName())
+                ? View.VISIBLE : View.GONE);
+    }
     private void switchTabAnimated(int nextTab) {
         if (switchingTab || nextTab == activeTab) return;
         switchingTab = true;
@@ -800,7 +824,11 @@ public class MainActivity extends Activity {
         parent.addView(space(8));
         parent.addView(settingRow("当前版本", "v" + versionName(), null));
         parent.addView(space(8));
-        parent.addView(settingRow("版本与社区", "GitHub Releases、QQ 频道和 QQ 群",
+        String latestVersion = AppPrefs.latestVersion(this);
+        String communitySubtitle = UpdateChecker.hasCachedUpdate(this, versionName())
+                ? "发现新版本 v" + latestVersion + "，点击查看"
+                : "GitHub Releases、QQ 频道和 QQ 群";
+        parent.addView(settingRow("版本与社区", communitySubtitle,
                 v -> showUpdateAndCommunityDialog()));
         parent.addView(space(18));
 
@@ -878,7 +906,7 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle("版本与社区")
                 .setItems(items, (dialog, which) -> {
-                    if (which == 0) checkForUpdates();
+                    if (which == 0) checkForUpdates(true);
                     else if (which == 1) openUrl(RELEASES_PAGE);
                     else if (which == 2) openUrl(QQ_CHANNEL_URL);
                     else if (which == 3) openUrl(QQ_GROUP_URL);
@@ -886,78 +914,65 @@ public class MainActivity extends Activity {
                 .setNegativeButton("取消", null)
                 .show();
     }
-    private void checkForUpdates() {
-        String currentVersion = versionName();
-        toast("正在检查更新……");
-        executor.execute(() -> {
-            try {
-                HttpURLConnection connection = (HttpURLConnection) new URL(RELEASES_API).openConnection();
-                connection.setConnectTimeout(10_000);
-                connection.setReadTimeout(10_000);
-                connection.setRequestProperty("Accept", "application/vnd.github+json");
-                connection.setRequestProperty("User-Agent", "SCNU-Schedule-App/1.4.1");
-                int status = connection.getResponseCode();
-                if (status != HttpURLConnection.HTTP_OK) {
-                    throw new IllegalStateException("HTTP " + status);
-                }
-                StringBuilder body = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(connection.getInputStream(), "UTF-8"))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) body.append(line).append('\n');
-                } finally {
-                    connection.disconnect();
-                }
-                JSONObject release = new JSONObject(body.toString());
-                String tag = release.optString("tag_name", "").replaceFirst("^[vV]", "");
-                String releaseUrl = release.optString("html_url", RELEASES_PAGE);
-                String notes = release.optString("body", "");
-                int comparison = compareVersions(tag, currentVersion);
+    private void checkForUpdates(boolean userInitiated) {
+        if (!userInitiated && !UpdateChecker.shouldCheck(this)) {
+            refreshUpdateBadge();
+            return;
+        }
+        if (userInitiated) toast("正在检查更新……");
+        UpdateChecker.check(this, userInitiated, versionName(), new UpdateChecker.Callback() {
+            @Override
+            public void onResult(boolean updateAvailable, String version, String url, String notes) {
                 runOnUiThread(() -> {
-                    if (comparison > 0) {
-                        new AlertDialog.Builder(this)
-                                .setTitle("发现新版本 v" + tag)
-                                .setMessage("当前版本：v" + currentVersion + "\n\n"
-                                        + (notes.isEmpty() ? "请前往 GitHub Releases 查看更新内容。" : notes))
-                                .setPositiveButton("打开下载页", (dialog, which) -> openUrl(releaseUrl))
+                    refreshUpdateBadge();
+                    if (activeTab == TAB_MORE) render();
+                    if (!userInitiated) return;
+                    if (updateAvailable) {
+                        String safeUrl = url == null || url.isEmpty() ? RELEASES_PAGE : url;
+                        String message = "当前版本：v" + versionName() + "\n\n"
+                                + (notes == null || notes.isEmpty()
+                                ? "请前往 GitHub Releases 查看更新内容。" : abbreviateText(notes, 1200));
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("发现新版本 v" + version)
+                                .setMessage(message)
+                                .setPositiveButton("打开下载页", (dialog, which) -> openUrl(safeUrl))
                                 .setNegativeButton("稍后", null)
                                 .show();
+                    } else if (version == null || version.isEmpty()) {
+                        new AlertDialog.Builder(MainActivity.this)
+                                .setTitle("暂未发现可用版本")
+                                .setMessage("GitHub 当前没有可识别的 Release 或新版本标签。\n\n"
+                                        + "发布后，App 会通过红点自动提示。")
+                                .setPositiveButton("打开 Releases", (dialog, which) -> openUrl(RELEASES_PAGE))
+                                .setNegativeButton("取消", null)
+                                .show();
                     } else {
-                        toast("当前已是最新版本 v" + currentVersion);
+                        toast("当前已是最新版本 v" + versionName());
                     }
                 });
-            } catch (Exception error) {
-                runOnUiThread(() -> new AlertDialog.Builder(this)
-                        .setTitle("无法检查更新")
-                        .setMessage("暂时无法访问 GitHub Releases。仓库公开后可直接打开下载页查看版本。\n\n"
-                                + "错误：" + error.getClass().getSimpleName())
-                        .setPositiveButton("打开下载页", (dialog, which) -> openUrl(RELEASES_PAGE))
-                        .setNegativeButton("取消", null)
-                        .show());
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    refreshUpdateBadge();
+                    if (!userInitiated) return;
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("无法检查更新")
+                            .setMessage("暂时无法访问 GitHub。可尝试直接打开 Releases 页面查看版本。\n\n"
+                                    + "错误：" + message)
+                            .setPositiveButton("打开 Releases", (dialog, which) -> openUrl(RELEASES_PAGE))
+                            .setNegativeButton("取消", null)
+                            .show();
+                });
             }
         });
     }
 
-    private int compareVersions(String left, String right) {
-        String[] leftParts = left.split("\\.");
-        String[] rightParts = right.split("\\.");
-        int count = Math.max(leftParts.length, rightParts.length);
-        for (int i = 0; i < count; i++) {
-            int a = i < leftParts.length ? parseVersionPart(leftParts[i]) : 0;
-            int b = i < rightParts.length ? parseVersionPart(rightParts[i]) : 0;
-            if (a != b) return Integer.compare(a, b);
-        }
-        return 0;
+    private String abbreviateText(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) return value == null ? "" : value;
+        return value.substring(0, maxLength) + "…";
     }
-
-    private int parseVersionPart(String value) {
-        try {
-            return Integer.parseInt(value.replaceAll("\\D", ""));
-        } catch (Exception ignored) {
-            return 0;
-        }
-    }
-
     private void openUrl(String url) {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
@@ -1382,6 +1397,12 @@ public class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
+
+
+
+
+
+
 
 
 
