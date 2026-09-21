@@ -3,9 +3,9 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/widget_background"
+    android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="11dp">
+    android:padding="12dp">
 
     <TextView
         android:id="@+id/widget_title"
@@ -31,8 +31,8 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="5dp"
-        android:layout_marginBottom="3dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="4dp"
         android:background="@color/widget_divider"
         android:text="" />
 
@@ -44,5 +44,3 @@
     <TextView android:id="@+id/widget_week_day_6" style="@style/WidgetWeekRow" />
     <TextView android:id="@+id/widget_week_day_7" style="@style/WidgetWeekRow" />
 </LinearLayout>
-
-

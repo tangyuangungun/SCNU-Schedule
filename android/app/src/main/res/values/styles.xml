@@ -12,7 +12,11 @@
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">match_parent</item>
         <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginLeft">2dp</item>
+        <item name="android:layout_marginRight">2dp</item>
+        <item name="android:background">@drawable/widget_day_background</item>
         <item name="android:gravity">center</item>
+        <item name="android:padding">3dp</item>
         <item name="android:textColor">@color/widget_title</item>
         <item name="android:textSize">10sp</item>
         <item name="android:maxLines">3</item>
@@ -21,11 +25,14 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">0dp</item>
         <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:background">@drawable/widget_week_row_background</item>
         <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingLeft">8dp</item>
+        <item name="android:paddingRight">8dp</item>
         <item name="android:textColor">@color/widget_title</item>
-        <item name="android:textSize">10sp</item>
-        <item name="android:maxLines">1</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:maxLines">2</item>
         <item name="android:ellipsize">end</item>
     </style>
 </resources>
-

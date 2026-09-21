@@ -63,6 +63,8 @@ public class MainActivity extends Activity {
     private static final int GRID_ROW_HEIGHT_DP = 58;
     private static final String RELEASES_API = "https://api.github.com/repos/tangyuangungun/SCNU-Schedule/releases/latest";
     private static final String RELEASES_PAGE = "https://github.com/tangyuangungun/SCNU-Schedule/releases";
+    private static final String QQ_CHANNEL_URL = "https://pd.qq.com/s/cj959avp3?b=9";
+    private static final String QQ_GROUP_URL = "https://qun.qq.com/universal-share/share?ac=1&authKey=WF102ovLFRm46gvBN9rNWDjKOJM4Tr54tunl8QHXlvVkqd9knhopsHV4rl3N14cG&busi_data=eyJncm91cENvZGUiOiIxMTI2NDgzNzEyIiwidG9rZW4iOiJQWVh5ei9odnhyc05ib0JwU1NnR1VxK01mTFk4LzlGTC82SWpUb2lJMXBzNEtEaWtNaVpyQi9PSTlPWlpmbUpDIiwidWluIjoiMTkzMzg1NTYzNSJ9&data=2fm9q0Kfjm2W6J63LNm-aDGLnJp0vpajPbgWKleqBJ0OwNn_JnMd_gUZX_XUeN66EJxhLntcM40SQnoAhzsa5A&svctype=4&tempid=h5_group_info";
 
     private boolean dark;
     private FrameLayout root;
@@ -417,16 +419,20 @@ public class MainActivity extends Activity {
     private void switchTabAnimated(int nextTab) {
         if (switchingTab || nextTab == activeTab) return;
         switchingTab = true;
+        float direction = nextTab > activeTab ? 1f : -1f;
         pageHost.animate()
                 .alpha(0f)
-                .setDuration(110L)
+                .translationX(-direction * dp(28))
+                .setDuration(130L)
                 .withEndAction(() -> {
                     activeTab = nextTab;
                     render();
                     pageHost.setAlpha(0f);
+                    pageHost.setTranslationX(direction * dp(28));
                     pageHost.animate()
                             .alpha(1f)
-                            .setDuration(190L)
+                            .translationX(0f)
+                            .setDuration(220L)
                             .withEndAction(() -> switchingTab = false)
                             .start();
                 })
@@ -754,11 +760,10 @@ public class MainActivity extends Activity {
     }
 
     private void addMoreView(LinearLayout parent) {
-        TextView title = text("更多", 24, textColor(), Typeface.BOLD);
         TextView subtitle = text("课表同步、日历、提醒和应用信息", 13, mutedColor(), Typeface.NORMAL);
-        parent.addView(title);
+        subtitle.setPadding(dp(2), 0, 0, dp(4));
         parent.addView(subtitle);
-        parent.addView(space(14));
+        parent.addView(space(8));
 
         LinearLayout syncCard = card();
         TextView syncTitle = text("课表同步", 15, textColor(), Typeface.BOLD);
@@ -795,8 +800,8 @@ public class MainActivity extends Activity {
         parent.addView(space(8));
         parent.addView(settingRow("当前版本", "v" + versionName(), null));
         parent.addView(space(8));
-        parent.addView(settingRow("后续更新入口", "从 GitHub 检查新版本与更新日志",
-                v -> checkForUpdates()));
+        parent.addView(settingRow("版本与社区", "GitHub Releases、QQ 频道和 QQ 群",
+                v -> showUpdateAndCommunityDialog()));
         parent.addView(space(18));
 
         Button logout = secondaryButton("退出登录");
@@ -847,7 +852,7 @@ public class MainActivity extends Activity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception ignored) {
-            return "1.4.0";
+            return "1.4.1";
         }
     }
 
@@ -868,6 +873,19 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    private void showUpdateAndCommunityDialog() {
+        String[] items = {"检查 GitHub 更新", "打开 GitHub Releases", "加入 QQ 频道", "加入 QQ 群"};
+        new AlertDialog.Builder(this)
+                .setTitle("版本与社区")
+                .setItems(items, (dialog, which) -> {
+                    if (which == 0) checkForUpdates();
+                    else if (which == 1) openUrl(RELEASES_PAGE);
+                    else if (which == 2) openUrl(QQ_CHANNEL_URL);
+                    else if (which == 3) openUrl(QQ_GROUP_URL);
+                })
+                .setNegativeButton("取消", null)
+                .show();
+    }
     private void checkForUpdates() {
         String currentVersion = versionName();
         toast("正在检查更新……");
@@ -877,7 +895,7 @@ public class MainActivity extends Activity {
                 connection.setConnectTimeout(10_000);
                 connection.setReadTimeout(10_000);
                 connection.setRequestProperty("Accept", "application/vnd.github+json");
-                connection.setRequestProperty("User-Agent", "SCNU-Schedule-App/1.4");
+                connection.setRequestProperty("User-Agent", "SCNU-Schedule-App/1.4.1");
                 int status = connection.getResponseCode();
                 if (status != HttpURLConnection.HTTP_OK) {
                     throw new IllegalStateException("HTTP " + status);
@@ -1364,6 +1382,8 @@ public class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
+
+
 
 
 

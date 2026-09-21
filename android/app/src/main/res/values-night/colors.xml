@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_background">#252C35</color>
-    <color name="widget_title">#F1F5F9</color>
-    <color name="widget_body">#B6C1CF</color>
-    <color name="widget_accent">#A8C7FA</color>
-    <color name="widget_divider">#3A4553</color>
+    <color name="widget_background">#FFFFFF</color>
+    <color name="widget_title">#12243A</color>
+    <color name="widget_body">#5B6B7E</color>
+    <color name="widget_accent">#2E6FB3</color>
+    <color name="widget_divider">#DCE7F3</color>
 </resources>
