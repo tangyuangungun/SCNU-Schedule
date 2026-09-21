@@ -65,12 +65,15 @@ public class CourseSyncEngine {
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
+        settings.setSafeBrowsingEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " SCNU-Schedule-App/1.3");
+        settings.setUserAgentString(settings.getUserAgentString() + " SCNU-Schedule-App/1.4");
         CookieManager.getInstance().setAcceptCookie(true);
 
         webView.setWebViewClient(new WebViewClient() {
@@ -103,6 +106,7 @@ public class CourseSyncEngine {
     public void stop() {
         finished.set(true);
         polling = false;
+        password = "";
         handler.removeCallbacksAndMessages(null);
     }
 
@@ -292,6 +296,7 @@ public class CourseSyncEngine {
                         fail("已读取到课表页面，但没有解析到课程数据。");
                     } else {
                         finished.set(true);
+                        password = "";
                         handler.removeCallbacksAndMessages(null);
                         callback.onSuccess(result.optString("semester", ""), courses);
                     }
@@ -325,6 +330,7 @@ public class CourseSyncEngine {
 
     private void fail(String message) {
         if (!finished.compareAndSet(false, true)) return;
+        password = "";
         handler.removeCallbacksAndMessages(null);
         callback.onError(message);
     }

@@ -19,8 +19,10 @@ public final class AppPrefs {
     public static final String REMINDER_TYPE_MESSAGE = "message";
 
     private static final String FILE = "scnu_schedule";
-    private static final String ACCOUNT = "account";
-    private static final String PASSWORD = "password";
+    private static final String ACCOUNT_ENCRYPTED = "account_encrypted";
+    private static final String PASSWORD_ENCRYPTED = "password_encrypted";
+    private static final String LEGACY_ACCOUNT = "account";
+    private static final String LEGACY_PASSWORD = "password";
     private static final String REMEMBER = "remember";
     private static final String COURSES = "courses";
     private static final String SEMESTER = "semester";
@@ -29,6 +31,10 @@ public final class AppPrefs {
     private static final String FREQ = "update_frequency";
     private static final String REMINDERS = "reminder_minutes";
     private static final String REMINDER_TYPE = "reminder_type";
+    private static final String PRIVACY_ACCEPTED = "privacy_accepted";
+
+    private static String sessionAccount = "";
+    private static String sessionPassword = "";
 
     private AppPrefs() {}
 
@@ -37,23 +43,78 @@ public final class AppPrefs {
     }
 
     public static void saveCredentials(Context context, String account, String password, boolean remember) {
-        prefs(context).edit()
-                .putString(ACCOUNT, account)
-                .putString(PASSWORD, password)
+        String safeAccount = account == null ? "" : account;
+        String safePassword = password == null ? "" : password;
+        sessionAccount = safeAccount;
+        sessionPassword = safePassword;
+
+        String encryptedAccount;
+        String encryptedPassword = "";
+        try {
+            encryptedAccount = CredentialCipher.encrypt(safeAccount);
+            if (remember && !safePassword.isEmpty()) {
+                encryptedPassword = CredentialCipher.encrypt(safePassword);
+            }
+        } catch (Exception ignored) {
+            prefs(context).edit()
+                    .remove(ACCOUNT_ENCRYPTED)
+                    .remove(PASSWORD_ENCRYPTED)
+                    .remove(LEGACY_ACCOUNT)
+                    .remove(LEGACY_PASSWORD)
+                    .putBoolean(REMEMBER, remember)
+                    .apply();
+            return;
+        }
+
+        SharedPreferences.Editor editor = prefs(context).edit()
+                .putString(ACCOUNT_ENCRYPTED, encryptedAccount)
                 .putBoolean(REMEMBER, remember)
-                .apply();
+                .remove(LEGACY_ACCOUNT)
+                .remove(LEGACY_PASSWORD);
+        if (remember && !encryptedPassword.isEmpty()) {
+            editor.putString(PASSWORD_ENCRYPTED, encryptedPassword);
+        } else {
+            editor.remove(PASSWORD_ENCRYPTED);
+        }
+        editor.apply();
     }
 
     public static String account(Context context) {
-        return prefs(context).getString(ACCOUNT, "");
+        SharedPreferences preferences = prefs(context);
+        migrateLegacyCredentials(context, preferences);
+        String encrypted = preferences.getString(ACCOUNT_ENCRYPTED, "");
+        if (!encrypted.isEmpty()) {
+            try {
+                return CredentialCipher.decrypt(encrypted);
+            } catch (Exception ignored) {
+                clearCredentials(context);
+                return "";
+            }
+        }
+        return sessionAccount;
     }
 
     public static String password(Context context) {
-        return prefs(context).getString(PASSWORD, "");
+        SharedPreferences preferences = prefs(context);
+        migrateLegacyCredentials(context, preferences);
+        String encrypted = preferences.getString(PASSWORD_ENCRYPTED, "");
+        if (!encrypted.isEmpty()) {
+            try {
+                return CredentialCipher.decrypt(encrypted);
+            } catch (Exception ignored) {
+                clearCredentials(context);
+                return "";
+            }
+        }
+        return sessionPassword;
+    }
+
+    public static boolean hasStoredPassword(Context context) {
+        return !prefs(context).getString(PASSWORD_ENCRYPTED, "").isEmpty();
     }
 
     public static boolean remember(Context context) {
-        return prefs(context).getBoolean(REMEMBER, true);
+        return prefs(context).getBoolean(REMEMBER, false);
     }
 
     public static boolean isLoggedIn(Context context) {
@@ -61,7 +122,23 @@ public final class AppPrefs {
     }
 
     public static void clearCredentials(Context context) {
-        prefs(context).edit().remove(ACCOUNT).remove(PASSWORD).remove(REMEMBER).apply();
+        sessionAccount = "";
+        sessionPassword = "";
+        prefs(context).edit()
+                .remove(ACCOUNT_ENCRYPTED)
+                .remove(PASSWORD_ENCRYPTED)
+                .remove(LEGACY_ACCOUNT)
+                .remove(LEGACY_PASSWORD)
+                .remove(REMEMBER)
+                .apply();
+    }
+
+    private static void migrateLegacyCredentials(Context context, SharedPreferences preferences) {
+        if (!preferences.contains(LEGACY_ACCOUNT) && !preferences.contains(LEGACY_PASSWORD)) return;
+        String account = preferences.getString(LEGACY_ACCOUNT, "");
+        String password = preferences.getString(LEGACY_PASSWORD, "");
+        boolean remember = preferences.getBoolean(REMEMBER, true);
+        saveCredentials(context, account, password, remember);
     }
 
     public static void saveCourses(Context context, String semester, List<Course> courses) {
@@ -106,6 +183,14 @@ public final class AppPrefs {
 
     public static void setDarkMode(Context context, boolean dark) {
         prefs(context).edit().putBoolean(DARK, dark).apply();
+    }
+
+    public static boolean privacyAccepted(Context context) {
+        return prefs(context).getBoolean(PRIVACY_ACCEPTED, false);
+    }
+
+    public static void setPrivacyAccepted(Context context, boolean accepted) {
+        prefs(context).edit().putBoolean(PRIVACY_ACCEPTED, accepted).apply();
     }
 
     public static String updateFrequency(Context context) {

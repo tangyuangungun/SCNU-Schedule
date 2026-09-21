@@ -1,0 +1,4 @@
+storeFile=D:/codex/keys/scnu-schedule-release.p12
+storePassword=REPLACE_WITH_STRONG_PASSWORD
+keyAlias=scnu-schedule-release
+keyPassword=REPLACE_WITH_STRONG_PASSWORD

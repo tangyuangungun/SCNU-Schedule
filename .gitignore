@@ -35,3 +35,6 @@ personal/
 privacy-terms.txt
 *.token
 *.secret
+*.p12
+keystore.properties
+release-signing.properties

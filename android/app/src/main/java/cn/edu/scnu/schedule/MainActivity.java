@@ -36,6 +36,12 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -55,6 +61,8 @@ public class MainActivity extends Activity {
     private static final int TAB_MORE = 2;
     private static final int GRID_PERIODS = 11;
     private static final int GRID_ROW_HEIGHT_DP = 58;
+    private static final String RELEASES_API = "https://api.github.com/repos/tangyuangungun/SCNU-Schedule/releases/latest";
+    private static final String RELEASES_PAGE = "https://github.com/tangyuangungun/SCNU-Schedule/releases";
 
     private boolean dark;
     private FrameLayout root;
@@ -95,7 +103,11 @@ public class MainActivity extends Activity {
         installSystemInsets();
         NotificationHelper.ensureChannels(this);
         SyncScheduler.schedule(this, AppPrefs.updateFrequency(this));
-        render();
+        if (AppPrefs.privacyAccepted(this)) {
+            render();
+        } else {
+            showPrivacyDialog(true);
+        }
         ScheduleWidgetProvider.updateAll(this);
     }
 
@@ -271,7 +283,7 @@ public class MainActivity extends Activity {
     private void addLoginScreen(LinearLayout parent) {
         loginButton = null;
         TextView lead = text("登录研究生系统", 24, textColor(), Typeface.BOLD);
-        TextView desc = text("输入统一身份认证账号。登录后，课程表和自动更新配置仅保存在本机。",
+        TextView desc = text("输入统一身份认证账号。账号和密码加密保存在本机，课程表仅在本机处理。",
                 14, mutedColor(), Typeface.NORMAL);
         desc.setLineSpacing(0, 1.25f);
         parent.addView(lead);
@@ -284,11 +296,11 @@ public class MainActivity extends Activity {
         EditText password = input("登录密码", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         password.setText(AppPrefs.password(this));
         CheckBox remember = new CheckBox(this);
-        remember.setText("登录信息保存在本机应用私有空间，用于自动更新");
+        remember.setText("加密保存登录信息，用于自动更新；不勾选则仅本次运行有效");
         remember.setTextColor(mutedColor());
         remember.setTextSize(13);
-        remember.setChecked(true);
-        remember.setEnabled(false);
+        remember.setChecked(AppPrefs.remember(this));
+        remember.setEnabled(true);
         remember.setButtonTintList(android.content.res.ColorStateList.valueOf(primary()));
 
         card.addView(label("账号"));
@@ -308,7 +320,7 @@ public class MainActivity extends Activity {
                 if (a.isEmpty()) account.requestFocus(); else password.requestFocus();
                 return;
             }
-            AppPrefs.saveCredentials(this, a, p, true);
+            AppPrefs.saveCredentials(this, a, p, remember.isChecked());
             startSync();
         });
         card.addView(space(6));
@@ -334,6 +346,28 @@ public class MainActivity extends Activity {
         parent.addView(note);
     }
 
+    private void showPrivacyDialog(boolean firstRun) {
+        String message = "本应用用于登录华南师范大学研究生系统并同步课表。\n\n"
+                + "1. 账号和密码仅用于登录学校系统；勾选保存后会加密存放在本机，不会发送到开发者服务器。\n"
+                + "2. 课表、提醒和界面设置仅保存在本机应用私有空间。\n"
+                + "3. 应用可能申请网络、通知、日历和精确闹钟权限，分别用于同步课表、上课提醒和导入日历。\n"
+                + "4. 应用不包含广告、统计或用户画像 SDK。\n"
+                + "5. 可通过退出登录、清除应用数据或卸载应用删除本地数据。\n\n"
+                + "完整说明请查看项目中的 PRIVACY.md。";
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle("隐私与权限说明")
+                .setMessage(message)
+                .setCancelable(!firstRun);
+        if (firstRun) {
+            builder.setPositiveButton("同意并继续", (dialog, which) -> {
+                AppPrefs.setPrivacyAccepted(this, true);
+                render();
+            }).setNegativeButton("不同意并退出", (dialog, which) -> finish());
+        } else {
+            builder.setPositiveButton("我知道了", null);
+        }
+        builder.show();
+    }
     private void showLoginError(String message) {
         if (statusView != null) {
             statusView.setTextColor(errorColor());
@@ -757,10 +791,12 @@ public class MainActivity extends Activity {
         TextView aboutTitle = text("应用信息", 17, textColor(), Typeface.BOLD);
         parent.addView(aboutTitle);
         parent.addView(space(8));
+        parent.addView(settingRow("隐私与权限", "查看数据收集、存储和授权说明", v -> showPrivacyDialog(false)));
+        parent.addView(space(8));
         parent.addView(settingRow("当前版本", "v" + versionName(), null));
         parent.addView(space(8));
-        parent.addView(settingRow("后续更新入口", "检查新版本与更新日志（后续开放）",
-                v -> showUpdatePlaceholder()));
+        parent.addView(settingRow("后续更新入口", "从 GitHub 检查新版本与更新日志",
+                v -> checkForUpdates()));
         parent.addView(space(18));
 
         Button logout = secondaryButton("退出登录");
@@ -811,7 +847,7 @@ public class MainActivity extends Activity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception ignored) {
-            return "1.2.0";
+            return "1.4.0";
         }
     }
 
@@ -832,12 +868,84 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    private void showUpdatePlaceholder() {
-        new AlertDialog.Builder(this)
-                .setTitle("检查更新")
-                .setMessage("更新服务将在后续版本接入。当前版本可通过重新构建安装包进行更新。")
-                .setPositiveButton("知道了", null)
-                .show();
+    private void checkForUpdates() {
+        String currentVersion = versionName();
+        toast("正在检查更新……");
+        executor.execute(() -> {
+            try {
+                HttpURLConnection connection = (HttpURLConnection) new URL(RELEASES_API).openConnection();
+                connection.setConnectTimeout(10_000);
+                connection.setReadTimeout(10_000);
+                connection.setRequestProperty("Accept", "application/vnd.github+json");
+                connection.setRequestProperty("User-Agent", "SCNU-Schedule-App/1.4");
+                int status = connection.getResponseCode();
+                if (status != HttpURLConnection.HTTP_OK) {
+                    throw new IllegalStateException("HTTP " + status);
+                }
+                StringBuilder body = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(connection.getInputStream(), "UTF-8"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) body.append(line).append('\n');
+                } finally {
+                    connection.disconnect();
+                }
+                JSONObject release = new JSONObject(body.toString());
+                String tag = release.optString("tag_name", "").replaceFirst("^[vV]", "");
+                String releaseUrl = release.optString("html_url", RELEASES_PAGE);
+                String notes = release.optString("body", "");
+                int comparison = compareVersions(tag, currentVersion);
+                runOnUiThread(() -> {
+                    if (comparison > 0) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("发现新版本 v" + tag)
+                                .setMessage("当前版本：v" + currentVersion + "\n\n"
+                                        + (notes.isEmpty() ? "请前往 GitHub Releases 查看更新内容。" : notes))
+                                .setPositiveButton("打开下载页", (dialog, which) -> openUrl(releaseUrl))
+                                .setNegativeButton("稍后", null)
+                                .show();
+                    } else {
+                        toast("当前已是最新版本 v" + currentVersion);
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> new AlertDialog.Builder(this)
+                        .setTitle("无法检查更新")
+                        .setMessage("暂时无法访问 GitHub Releases。仓库公开后可直接打开下载页查看版本。\n\n"
+                                + "错误：" + error.getClass().getSimpleName())
+                        .setPositiveButton("打开下载页", (dialog, which) -> openUrl(RELEASES_PAGE))
+                        .setNegativeButton("取消", null)
+                        .show());
+            }
+        });
+    }
+
+    private int compareVersions(String left, String right) {
+        String[] leftParts = left.split("\\.");
+        String[] rightParts = right.split("\\.");
+        int count = Math.max(leftParts.length, rightParts.length);
+        for (int i = 0; i < count; i++) {
+            int a = i < leftParts.length ? parseVersionPart(leftParts[i]) : 0;
+            int b = i < rightParts.length ? parseVersionPart(rightParts[i]) : 0;
+            if (a != b) return Integer.compare(a, b);
+        }
+        return 0;
+    }
+
+    private int parseVersionPart(String value) {
+        try {
+            return Integer.parseInt(value.replaceAll("\\D", ""));
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception ignored) {
+            toast("无法打开下载页");
+        }
     }
 
     private void startSync() {
