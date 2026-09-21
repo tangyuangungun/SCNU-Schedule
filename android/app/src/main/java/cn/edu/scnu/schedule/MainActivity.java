@@ -345,7 +345,7 @@ public class MainActivity extends Activity {
         parent.addView(space(12));
         parent.addView(web, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
-        TextView note = text("提示：如果学校页面出现验证码，请打开网页验证完成一次登录；后续首次登录成功后可自动更新。",
+        TextView note = text("提示：如果登入失败或学校页面出现验证码，请打开网页验证完成一次登录；后续首次登录成功后可自动更新。",
                 12, mutedColor(), Typeface.NORMAL);
         note.setPadding(dp(4), dp(12), dp(4), 0);
         parent.addView(note);
@@ -1397,6 +1397,7 @@ public class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
+
 
 
 
