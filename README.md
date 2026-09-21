@@ -6,7 +6,7 @@
 
 - `android/`：Android 客户端源码，纯 Java + Android SDK，支持浅色/深色主题。
 - `python/`：Python Selenium 课表抓取脚本及虚构示例输出。
-- `outputs/`：正式签名的 v1.4.0 APK、Android 使用说明及历史测试文件。
+- `outputs/`：正式签名的 v1.4.2 APK、Android 使用说明及历史测试文件。
 
 ## 功能
 
@@ -27,10 +27,13 @@
 - 修复小尺寸和大尺寸桌面小组件的加载错误。
 - 页面左右滑动加入淡入淡出过渡效果。
 - 统一认证“确定登录”改为原生触摸自动确认，降低学校页面对脚本点击的拦截。
+- 新增桌面小组件 4 步图文教程。
+- 新增新版本 GitHub 红点提醒，启动和后台按 48 小时节流检查。
+- 应用图标更新为新版日历课表设计。
 
 ## 安装包
 
-正式签名安装包位于 `outputs/SCNU-Schedule-v1.4.0.apk`，并将在 GitHub Releases 中发布。`outputs/SCNU-Schedule-v1.3.0.apk` 仅用于历史测试，不建议继续分发。
+正式签名安装包位于 `outputs/SCNU-Schedule-v1.4.2.apk`，并在 GitHub Releases 中发布。旧版测试安装包仅用于历史记录，不建议继续分发。
 
 切换到正式签名后，已安装测试版的用户需要卸载一次，再安装正式版；后续正式版可在同一签名下覆盖升级。
 
