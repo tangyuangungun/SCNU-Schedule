@@ -3,7 +3,7 @@ package cn.edu.scnu.schedule;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
-import android.app.AlertDialog;
+
 import android.app.Dialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
@@ -428,6 +428,14 @@ public class MainActivity extends Activity {
     private Dialog showStyledDialog(String title, View content, String positiveText,
                                     Runnable positiveAction, String negativeText,
                                     Runnable negativeAction, boolean cancelable) {
+        return showStyledDialog(title, content, positiveText, positiveAction,
+                negativeText, negativeAction, null, null, cancelable);
+    }
+
+    private Dialog showStyledDialog(String title, View content, String positiveText,
+                                    Runnable positiveAction, String negativeText,
+                                    Runnable negativeAction, String neutralText,
+                                    Runnable neutralAction, boolean cancelable) {
         Dialog dialog = new Dialog(this);
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
@@ -440,17 +448,26 @@ public class MainActivity extends Activity {
         panel.addView(space(12));
 
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
+        scroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
         scroll.addView(content, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         panel.addView(scroll, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         panel.addView(space(14));
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.END);
+        if (neutralText != null) {
+            Button neutral = secondaryButton(neutralText);
+            neutral.setOnClickListener(v -> {
+                if (neutralAction != null) neutralAction.run();
+                dialog.dismiss();
+            });
+            actions.addView(neutral, new LinearLayout.LayoutParams(0, dp(44), 1f));
+            actions.addView(horizontalSpace(8));
+        }
         if (negativeText != null) {
             Button negative = secondaryButton(negativeText);
             negative.setOnClickListener(v -> {
@@ -458,7 +475,7 @@ public class MainActivity extends Activity {
                 dialog.dismiss();
             });
             actions.addView(negative, new LinearLayout.LayoutParams(0, dp(44), 1f));
-            actions.addView(horizontalSpace(10));
+            actions.addView(horizontalSpace(8));
         }
         Button positive = primaryButton(positiveText);
         positive.setOnClickListener(v -> {
@@ -469,7 +486,7 @@ public class MainActivity extends Activity {
         panel.addView(actions);
 
         dialog.setContentView(panel, new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         dialog.setCancelable(cancelable);
         dialog.setCanceledOnTouchOutside(cancelable);
         dialog.show();
@@ -477,11 +494,17 @@ public class MainActivity extends Activity {
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             int width = Math.round(getResources().getDisplayMetrics().widthPixels * 0.92f);
-            int maxHeight = dp(640);
-            int screenHeight = Math.round(getResources().getDisplayMetrics().heightPixels * 0.84f);
-            window.setLayout(width, Math.min(maxHeight, screenHeight));
+            window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
         return dialog;
+    }
+    private void showStyledMessageDialog(String title, String message, String positiveText,
+                                         Runnable positiveAction, String negativeText,
+                                         Runnable negativeAction, boolean cancelable) {
+        TextView body = text(message, 13, mutedColor(), Typeface.NORMAL);
+        body.setLineSpacing(0, 1.3f);
+        showStyledDialog(title, body, positiveText, positiveAction,
+                negativeText, negativeAction, cancelable);
     }
     private void showLoginError(String message) {
         if (statusView != null) {
@@ -886,11 +909,7 @@ public class MainActivity extends Activity {
                 + "\n地点：" + safe(course.location)
                 + "\n周次：" + safe(course.weeks) + "    学分：" + safe(course.credits)
                 + "\n课程代码：" + safe(course.code);
-        new AlertDialog.Builder(this)
-                .setTitle(safe(course.name))
-                .setMessage(message)
-                .setPositiveButton("关闭", null)
-                .show();
+        showStyledMessageDialog(safe(course.name), message, "关闭", null, null, null, true);
     }
 
     private void showEditCourseTimeDialog(Course course) {
@@ -934,32 +953,25 @@ public class MainActivity extends Activity {
             picker.show();
         });
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setTitle("修改课程时间")
-                .setView(panel)
-                .setPositiveButton("保存", (dialog, which) -> {
-                    if (minutesOfDay(selectedStart) >= minutesOfDay(selectedEnd)) {
-                        toast("下课时间必须晚于上课时间");
-                        return;
-                    }
-                    AppPrefs.saveCourseTimeOverride(this, course,
-                            formatClock(selectedStart), formatClock(selectedEnd));
-                    ReminderScheduler.scheduleAll(this);
-                    ScheduleWidgetProvider.updateAll(this);
-                    render();
-                    toast("课程时间已更新");
-                })
-                .setNegativeButton("取消", null);
-        if (AppPrefs.hasCourseTimeOverride(this, course)) {
-            builder.setNeutralButton("恢复默认", (dialog, which) -> {
-                AppPrefs.clearCourseTimeOverride(this, course);
-                ReminderScheduler.scheduleAll(this);
-                ScheduleWidgetProvider.updateAll(this);
-                render();
-                toast("已恢复学校默认时间");
-            });
-        }
-        builder.show();
+        boolean hasOverride = AppPrefs.hasCourseTimeOverride(this, course);
+        showStyledDialog("修改课程时间", panel, "保存", () -> {
+            if (minutesOfDay(selectedStart) >= minutesOfDay(selectedEnd)) {
+                toast("下课时间必须晚于上课时间");
+                return;
+            }
+            AppPrefs.saveCourseTimeOverride(this, course,
+                    formatClock(selectedStart), formatClock(selectedEnd));
+            ReminderScheduler.scheduleAll(this);
+            ScheduleWidgetProvider.updateAll(this);
+            render();
+            toast("课程时间已更新");
+        }, "取消", null, hasOverride ? "恢复默认" : null, () -> {
+            AppPrefs.clearCourseTimeOverride(this, course);
+            ReminderScheduler.scheduleAll(this);
+            ScheduleWidgetProvider.updateAll(this);
+            render();
+            toast("已恢复学校默认时间");
+        }, true);
     }
 
     private int[] parseCourseTime(String time, boolean start) {
@@ -1091,30 +1103,61 @@ public class MainActivity extends Activity {
         String[] values = {AppPrefs.FREQ_MANUAL, AppPrefs.FREQ_WEEKLY, AppPrefs.FREQ_MONTHLY};
         String current = AppPrefs.updateFrequency(this);
         int checked = AppPrefs.FREQ_MANUAL.equals(current) ? 0 : AppPrefs.FREQ_MONTHLY.equals(current) ? 2 : 1;
-        new AlertDialog.Builder(this)
-                .setTitle("自动更新频率")
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    AppPrefs.setUpdateFrequency(this, values[which]);
-                    SyncScheduler.schedule(this, values[which]);
-                    dialog.dismiss();
-                    render();
-                })
-                .setNegativeButton("取消", null)
-                .show();
-    }
+        final int[] selected = {checked};
 
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        TextView intro = text("选择课表在后台自动同步的频率。", 13, mutedColor(), Typeface.NORMAL);
+        intro.setLineSpacing(0, 1.25f);
+        content.addView(intro);
+        content.addView(space(12));
+        RadioGroup group = new RadioGroup(this);
+        group.setOrientation(RadioGroup.VERTICAL);
+        for (int i = 0; i < labels.length; i++) {
+            RadioButton option = new RadioButton(this);
+            option.setText(labels[i]);
+            option.setTextColor(textColor());
+            option.setTextSize(15);
+            option.setPadding(dp(4), dp(8), dp(4), dp(8));
+            option.setButtonTintList(android.content.res.ColorStateList.valueOf(primary()));
+            final int index = i;
+            option.setOnCheckedChangeListener((button, isChecked) -> {
+                if (isChecked) selected[0] = index;
+            });
+            group.addView(option);
+            if (i == checked) option.setChecked(true);
+        }
+        content.addView(group);
+        showStyledDialog("自动更新频率", content, "保存", () -> {
+            AppPrefs.setUpdateFrequency(this, values[selected[0]]);
+            SyncScheduler.schedule(this, values[selected[0]]);
+            render();
+        }, "取消", null, true);
+    }
     private void showUpdateAndCommunityDialog() {
-        String[] items = {"检查 GitHub 更新", "打开 GitHub Releases", "加入 QQ 频道", "加入 QQ 群"};
-        new AlertDialog.Builder(this)
-                .setTitle("版本与社区")
-                .setItems(items, (dialog, which) -> {
-                    if (which == 0) checkForUpdates(true);
-                    else if (which == 1) openUrl(RELEASES_PAGE);
-                    else if (which == 2) openUrl(QQ_CHANNEL_URL);
-                    else if (which == 3) openUrl(QQ_GROUP_URL);
-                })
-                .setNegativeButton("取消", null)
-                .show();
+        final Dialog[] holder = new Dialog[1];
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        TextView intro = text("检查更新、下载正式版本或加入交流社区。", 13, mutedColor(), Typeface.NORMAL);
+        intro.setLineSpacing(0, 1.25f);
+        content.addView(intro);
+        content.addView(space(10));
+        View check = settingRow("检查 GitHub 更新", "检查最新 Release、预发布版和 Tags",
+                v -> { holder[0].dismiss(); checkForUpdates(true); });
+        View releases = settingRow("打开 GitHub Releases", "查看版本说明和安装包",
+                v -> { holder[0].dismiss(); openUrl(RELEASES_PAGE); });
+        View channel = settingRow("加入 QQ 频道", "获取更新通知和交流信息",
+                v -> { holder[0].dismiss(); openUrl(QQ_CHANNEL_URL); });
+        View group = settingRow("加入 QQ 群", "群号 1126483712",
+                v -> { holder[0].dismiss(); openUrl(QQ_GROUP_URL); });
+        content.addView(check);
+        content.addView(space(8));
+        content.addView(releases);
+        content.addView(space(8));
+        content.addView(channel);
+        content.addView(space(8));
+        content.addView(group);
+        holder[0] = showStyledDialog("版本与社区", content, "关闭", null, null, null, true);
     }
     private void checkForUpdates(boolean userInitiated) {
         if (!userInitiated && !UpdateChecker.shouldCheck(this)) {
@@ -1134,20 +1177,12 @@ public class MainActivity extends Activity {
                         String message = "当前版本：v" + versionName() + "\n\n"
                                 + (notes == null || notes.isEmpty()
                                 ? "请前往 GitHub Releases 查看更新内容。" : abbreviateText(notes, 1200));
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("发现新版本 v" + version)
-                                .setMessage(message)
-                                .setPositiveButton("打开下载页", (dialog, which) -> openUrl(safeUrl))
-                                .setNegativeButton("稍后", null)
-                                .show();
+                        showStyledMessageDialog("发现新版本 v" + version, message,
+                                "打开下载页", () -> openUrl(safeUrl), "稍后", null, true);
                     } else if (version == null || version.isEmpty()) {
-                        new AlertDialog.Builder(MainActivity.this)
-                                .setTitle("暂未发现可用版本")
-                                .setMessage("GitHub 当前没有可识别的 Release 或新版本标签。\n\n"
-                                        + "发布后，App 会通过红点自动提示。")
-                                .setPositiveButton("打开 Releases", (dialog, which) -> openUrl(RELEASES_PAGE))
-                                .setNegativeButton("取消", null)
-                                .show();
+                        showStyledMessageDialog("暂未发现可用版本",
+                                "GitHub 当前没有可识别的 Release 或新版本标签。\n\n发布后，App 会通过红点自动提示。",
+                                "打开 Releases", () -> openUrl(RELEASES_PAGE), "取消", null, true);
                     } else {
                         toast("当前已是最新版本 v" + versionName());
                     }
@@ -1159,13 +1194,9 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     refreshUpdateBadge();
                     if (!userInitiated) return;
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("无法检查更新")
-                            .setMessage("暂时无法访问 GitHub。可尝试直接打开 Releases 页面查看版本。\n\n"
-                                    + "错误：" + message)
-                            .setPositiveButton("打开 Releases", (dialog, which) -> openUrl(RELEASES_PAGE))
-                            .setNegativeButton("取消", null)
-                            .show();
+                    showStyledMessageDialog("无法检查更新",
+                            "暂时无法访问 GitHub。可尝试直接打开 Releases 页面查看版本。\n\n错误：" + message,
+                            "打开 Releases", () -> openUrl(RELEASES_PAGE), "取消", null, true);
                 });
             }
         });
@@ -1269,17 +1300,6 @@ public class MainActivity extends Activity {
                     toast(message);
                 })));
     }
-    private void showWidgetHelpDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("添加桌面小组件")
-                .setMessage("长按手机桌面空白处，选择“小组件”，找到“华师课表”，可添加：\n\n"
-                        + "• 今日课程：适合 2×2 小尺寸\n"
-                        + "• 本周概览：适合 4×2 中尺寸\n"
-                        + "• 一周课表：适合 4×4 大尺寸\n\n"
-                        + "小组件会自动读取本机保存的课表。")
-                .setPositiveButton("知道了", null)
-                .show();
-    }
     private void showReminderDialog() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
@@ -1342,28 +1362,23 @@ public class MainActivity extends Activity {
         enable.setOnCheckedChangeListener((button, checked) -> updateState.run());
         updateState.run();
 
-        new AlertDialog.Builder(this)
-                .setTitle("上课提醒")
-                .setView(panel)
-                .setPositiveButton("保存", (dialog, which) -> {
-                    LinkedHashSet<Integer> values = new LinkedHashSet<>();
-                    if (enable.isChecked()) {
-                        for (int i = 0; i < options.length; i++) if (boxes[i].isChecked()) values.add(options[i]);
-                    }
-                    String type = alarm.isChecked()
-                            ? AppPrefs.REMINDER_TYPE_ALARM : AppPrefs.REMINDER_TYPE_MESSAGE;
-                    AppPrefs.setReminderType(this, type);
-                    AppPrefs.setReminderMinutes(this, values);
-                    ReminderScheduler.scheduleAll(this);
-                    toast(values.isEmpty() ? "已关闭上课提醒" : "提醒设置已保存");
-                    render();
-                    if (!values.isEmpty()) {
-                        if (!AppPrefs.reminderMinutes(MainActivity.this).isEmpty()) requestNotificationPermissionIfNeeded();
-                        if (AppPrefs.REMINDER_TYPE_ALARM.equals(type)) requestExactAlarmPermissionIfNeeded();
-                    }
-                })
-                .setNegativeButton("取消", null)
-                .show();
+        showStyledDialog("上课提醒", panel, "保存", () -> {
+            LinkedHashSet<Integer> values = new LinkedHashSet<>();
+            if (enable.isChecked()) {
+                for (int i = 0; i < options.length; i++) if (boxes[i].isChecked()) values.add(options[i]);
+            }
+            String type = alarm.isChecked()
+                    ? AppPrefs.REMINDER_TYPE_ALARM : AppPrefs.REMINDER_TYPE_MESSAGE;
+            AppPrefs.setReminderType(this, type);
+            AppPrefs.setReminderMinutes(this, values);
+            ReminderScheduler.scheduleAll(this);
+            toast(values.isEmpty() ? "已关闭上课提醒" : "提醒设置已保存");
+            render();
+            if (!values.isEmpty()) {
+                requestNotificationPermissionIfNeeded();
+                if (AppPrefs.REMINDER_TYPE_ALARM.equals(type)) requestExactAlarmPermissionIfNeeded();
+            }
+        }, "取消", null, true);
     }
     private void requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT >= 33
@@ -1386,10 +1401,8 @@ public class MainActivity extends Activity {
     }
 
     private void confirmLogout() {
-        new AlertDialog.Builder(this)
-                .setTitle("退出登录")
-                .setMessage("退出后会保留已下载课表，但停止自动更新和提醒。")
-                .setPositiveButton("退出", (dialog, which) -> {
+        showStyledMessageDialog("退出登录", "退出后会保留已下载课表，但停止自动更新和提醒。",
+                "退出", () -> {
                     ReminderScheduler.cancelAll(this, AppPrefs.courses(this));
                     SyncScheduler.schedule(this, AppPrefs.FREQ_MANUAL);
                     AppPrefs.clearCredentials(this);
@@ -1397,9 +1410,7 @@ public class MainActivity extends Activity {
                     activeTab = TAB_WEEK;
                     selectedSemesterKey = "";
                     render();
-                })
-                .setNegativeButton("取消", null)
-                .show();
+                }, "取消", null, true);
     }
 
     private void showWebVerification() {
@@ -1623,6 +1634,18 @@ public class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
