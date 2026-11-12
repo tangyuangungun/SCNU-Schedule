@@ -36,6 +36,16 @@ public final class ReminderScheduler {
         }
     }
 
+    static boolean shouldDeliverNow(Course course) {
+        if (course == null) return false;
+        java.time.LocalDate today = java.time.LocalDate.now();
+        if (course.weekdayNumber() != today.getDayOfWeek().getValue()) return false;
+        SemesterCalendar.Semester semester = SemesterCalendar.resolve(today);
+        if (!semester.isInTerm(today) || !course.occursInWeek(semester.weekFor(today))) return false;
+        Calendar start = Calendar.getInstance();
+        applyTime(start, course.time == null ? "" : course.time);
+        return Calendar.getInstance().before(start);
+    }
     public static void scheduleCourse(Context context, int index, int leadMinutes) {
         List<Course> courses = AppPrefs.courses(context);
         if (index < 0 || index >= courses.size()) return;
@@ -112,3 +122,4 @@ public final class ReminderScheduler {
         }
     }
 }
+

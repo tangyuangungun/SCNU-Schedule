@@ -4,10 +4,13 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -27,6 +30,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
@@ -110,6 +114,7 @@ public class MainActivity extends Activity {
             UpdateCheckScheduler.schedule(this);
             render();
             checkForUpdates(false);
+            maybeRunAutomaticSync();
         } else {
             showPrivacyDialog(true);
         }
@@ -164,6 +169,16 @@ public class MainActivity extends Activity {
             switchTabAnimated(nextTab);
             return true;
         }
+    }
+    private void maybeRunAutomaticSync() {
+        if (syncing || !AppPrefs.isLoggedIn(this) || !AppPrefs.hasStoredPassword(this)) return;
+        String frequency = AppPrefs.updateFrequency(this);
+        if (AppPrefs.FREQ_MANUAL.equals(frequency)) return;
+        long last = AppPrefs.lastUpdate(this);
+        if (last > 0 && System.currentTimeMillis() - last < SyncScheduler.intervalMs(frequency)) return;
+        pageHost.postDelayed(() -> {
+            if (!syncing && AppPrefs.isLoggedIn(this)) startSync();
+        }, 700L);
     }
     private void configureWindow() {
         Window window = getWindow();
@@ -227,6 +242,9 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         scroll.setClipToPadding(false);
         scroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        scroll.setSmoothScrollingEnabled(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(18), dp(14), dp(18), hasSchedule ? dp(92) : dp(34));
@@ -352,28 +370,118 @@ public class MainActivity extends Activity {
     }
 
     private void showPrivacyDialog(boolean firstRun) {
-        String message = "本应用用于登录华南师范大学研究生系统并同步课表。\n\n"
-                + "1. 账号和密码仅用于登录学校系统；勾选保存后会加密存放在本机，不会发送到开发者服务器。\n"
-                + "2. 课表、提醒和界面设置仅保存在本机应用私有空间。\n"
-                + "3. 应用可能申请网络、通知、日历和精确闹钟权限，分别用于同步课表、上课提醒和导入日历。\n"
-                + "4. 应用不包含广告、统计或用户画像 SDK。\n"
-                + "5. 可通过退出登录、清除应用数据或卸载应用删除本地数据。\n\n"
-                + "完整说明请查看项目中的 PRIVACY.md。";
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setTitle("隐私与权限说明")
-                .setMessage(message)
-                .setCancelable(!firstRun);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        String[] headings = {"账号与密码", "本机数据", "权限用途", "第三方服务", "删除数据"};
+        String[] bodies = {
+                "账号和密码仅用于登录华南师范大学研究生系统。勾选保存后会加密存放在本机，不会发送到开发者服务器。",
+                "课表、提醒、组件和界面设置仅保存在本机应用私有空间。",
+                "网络用于同步课表；通知用于上课提醒；日历用于导入课程；精确闹钟仅在你主动启用闹钟提醒时使用。",
+                "应用不包含广告、统计或用户画像 SDK。",
+                "可通过退出登录、清除应用数据或卸载应用删除本地数据。"
+        };
+        for (int i = 0; i < headings.length; i++) {
+            TextView heading = text((i + 1) + ". " + headings[i], 14, primary(), Typeface.BOLD);
+            TextView body = text(bodies[i], 13, mutedColor(), Typeface.NORMAL);
+            body.setLineSpacing(0, 1.28f);
+            body.setPadding(0, dp(4), 0, dp(12));
+            content.addView(heading);
+            content.addView(body);
+        }
+        TextView footer = text("完整说明请查看项目中的 PRIVACY.md。", 12, mutedColor(), Typeface.NORMAL);
+        footer.setLineSpacing(0, 1.2f);
+        content.addView(footer);
         if (firstRun) {
-            builder.setPositiveButton("同意并继续", (dialog, which) -> {
+            showStyledDialog("隐私与权限说明", content, "同意并继续", () -> {
                 AppPrefs.setPrivacyAccepted(this, true);
                 UpdateCheckScheduler.schedule(this);
                 render();
                 checkForUpdates(false);
-            }).setNegativeButton("不同意并退出", (dialog, which) -> finish());
+            }, "不同意并退出", this::finish, false);
         } else {
-            builder.setPositiveButton("我知道了", null);
+            showStyledDialog("隐私与权限说明", content, "我知道了", null, null, null, true);
         }
-        builder.show();
+    }
+
+    private void showSponsorDialog() {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        TextView thanks = text("感谢你的支持，请作者喝一杯奶茶。", 14, textColor(), Typeface.BOLD);
+        thanks.setGravity(Gravity.CENTER);
+        content.addView(thanks);
+        content.addView(space(10));
+        ImageView qr = new ImageView(this);
+        qr.setAdjustViewBounds(true);
+        qr.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        qr.setImageResource(R.drawable.sponsor_qr);
+        qr.setBackground(roundedStroke(cardColor(), 16, dividerColor()));
+        qr.setPadding(dp(6), dp(6), dp(6), dp(6));
+        content.addView(qr, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        content.addView(space(10));
+        TextView note = text("微信扫码即可支持，金额随意。", 12, mutedColor(), Typeface.NORMAL);
+        note.setGravity(Gravity.CENTER);
+        content.addView(note);
+        showStyledDialog("打赏作者", content, "关闭", null, null, null, true);
+    }
+
+    private Dialog showStyledDialog(String title, View content, String positiveText,
+                                    Runnable positiveAction, String negativeText,
+                                    Runnable negativeAction, boolean cancelable) {
+        Dialog dialog = new Dialog(this);
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(20), dp(18), dp(20), dp(16));
+        panel.setBackground(roundedStroke(cardColor(), 24, dividerColor()));
+        panel.setElevation(dp(16));
+
+        TextView heading = text(title, 21, textColor(), Typeface.BOLD);
+        panel.addView(heading);
+        panel.addView(space(12));
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.addView(content, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        panel.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        panel.addView(space(14));
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.END);
+        if (negativeText != null) {
+            Button negative = secondaryButton(negativeText);
+            negative.setOnClickListener(v -> {
+                if (negativeAction != null) negativeAction.run();
+                dialog.dismiss();
+            });
+            actions.addView(negative, new LinearLayout.LayoutParams(0, dp(44), 1f));
+            actions.addView(horizontalSpace(10));
+        }
+        Button positive = primaryButton(positiveText);
+        positive.setOnClickListener(v -> {
+            if (positiveAction != null) positiveAction.run();
+            dialog.dismiss();
+        });
+        actions.addView(positive, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        panel.addView(actions);
+
+        dialog.setContentView(panel, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        dialog.setCancelable(cancelable);
+        dialog.setCanceledOnTouchOutside(cancelable);
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            int width = Math.round(getResources().getDisplayMetrics().widthPixels * 0.92f);
+            int maxHeight = dp(640);
+            int screenHeight = Math.round(getResources().getDisplayMetrics().heightPixels * 0.84f);
+            window.setLayout(width, Math.min(maxHeight, screenHeight));
+        }
+        return dialog;
     }
     private void showLoginError(String message) {
         if (statusView != null) {
@@ -628,6 +736,7 @@ public class MainActivity extends Activity {
                 block.setPadding(dp(2), dp(3), dp(2), dp(2));
                 block.setBackground(rounded(courseColor(course), 8));
                 block.setOnClickListener(v -> showCourseDetails(course));
+                block.setOnLongClickListener(v -> { showEditCourseTimeDialog(course); return true; });
                 FrameLayout.LayoutParams blockParams = new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT, span * dp(GRID_ROW_HEIGHT_DP) - dp(4));
                 blockParams.topMargin = (start - 1) * dp(GRID_ROW_HEIGHT_DP) + dp(2);
@@ -755,6 +864,7 @@ public class MainActivity extends Activity {
         card.setBackground(roundedStroke(cardColor(), 18, dividerColor()));
         card.setClickable(true);
         card.setOnClickListener(v -> showCourseDetails(course));
+        card.setOnLongClickListener(v -> { showEditCourseTimeDialog(course); return true; });
         TextView name = text(course.name, 17, textColor(), Typeface.BOLD);
         TextView time = text(course.compactTime() + "   " + course.periods, 14,
                 primary(), Typeface.BOLD);
@@ -783,6 +893,96 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    private void showEditCourseTimeDialog(Course course) {
+        int[] startParts = parseCourseTime(course.time, true);
+        int[] endParts = parseCourseTime(course.time, false);
+        final int[] selectedStart = {startParts[0], startParts[1]};
+        final int[] selectedEnd = {endParts[0], endParts[1]};
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(20), dp(8), dp(20), dp(4));
+        TextView hint = text("仅修改本机显示和提醒时间，不影响学校系统。", 12, mutedColor(), Typeface.NORMAL);
+        hint.setLineSpacing(0, 1.2f);
+        panel.addView(hint);
+        panel.addView(space(12));
+
+        Button startButton = secondaryButton("上课时间 " + formatClock(selectedStart));
+        Button endButton = secondaryButton("下课时间 " + formatClock(selectedEnd));
+        panel.addView(startButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
+        panel.addView(space(8));
+        panel.addView(endButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(46)));
+
+        startButton.setOnClickListener(v -> {
+            TimePickerDialog picker = new TimePickerDialog(this, (view, hour, minute) -> {
+                selectedStart[0] = hour;
+                selectedStart[1] = minute;
+                startButton.setText("上课时间 " + formatClock(selectedStart));
+            }, selectedStart[0], selectedStart[1], true);
+            picker.setTitle("选择上课时间");
+            picker.show();
+        });
+        endButton.setOnClickListener(v -> {
+            TimePickerDialog picker = new TimePickerDialog(this, (view, hour, minute) -> {
+                selectedEnd[0] = hour;
+                selectedEnd[1] = minute;
+                endButton.setText("下课时间 " + formatClock(selectedEnd));
+            }, selectedEnd[0], selectedEnd[1], true);
+            picker.setTitle("选择下课时间");
+            picker.show();
+        });
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle("修改课程时间")
+                .setView(panel)
+                .setPositiveButton("保存", (dialog, which) -> {
+                    if (minutesOfDay(selectedStart) >= minutesOfDay(selectedEnd)) {
+                        toast("下课时间必须晚于上课时间");
+                        return;
+                    }
+                    AppPrefs.saveCourseTimeOverride(this, course,
+                            formatClock(selectedStart), formatClock(selectedEnd));
+                    ReminderScheduler.scheduleAll(this);
+                    ScheduleWidgetProvider.updateAll(this);
+                    render();
+                    toast("课程时间已更新");
+                })
+                .setNegativeButton("取消", null);
+        if (AppPrefs.hasCourseTimeOverride(this, course)) {
+            builder.setNeutralButton("恢复默认", (dialog, which) -> {
+                AppPrefs.clearCourseTimeOverride(this, course);
+                ReminderScheduler.scheduleAll(this);
+                ScheduleWidgetProvider.updateAll(this);
+                render();
+                toast("已恢复学校默认时间");
+            });
+        }
+        builder.show();
+    }
+
+    private int[] parseCourseTime(String time, boolean start) {
+        String value = time == null ? "" : time.split("、")[0];
+        String[] range = value.split("-");
+        String target = start ? (range.length > 0 ? range[0] : "") : (range.length > 1 ? range[1] : "");
+        try {
+            String[] parts = target.trim().split(":");
+            int hour = Integer.parseInt(parts[0]);
+            int minute = Integer.parseInt(parts[1]);
+            if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) return new int[]{hour, minute};
+        } catch (Exception ignored) {
+        }
+        return start ? new int[]{8, 30} : new int[]{10, 0};
+    }
+
+    private int minutesOfDay(int[] value) {
+        return value[0] * 60 + value[1];
+    }
+
+    private String formatClock(int[] value) {
+        return String.format(Locale.CHINA, "%02d:%02d", value[0], value[1]);
+    }
     private void addMoreView(LinearLayout parent) {
         TextView subtitle = text("课表同步、日历、提醒和应用信息", 13, mutedColor(), Typeface.NORMAL);
         subtitle.setPadding(dp(2), 0, 0, dp(4));
@@ -830,6 +1030,8 @@ public class MainActivity extends Activity {
                 : "GitHub Releases、QQ 频道和 QQ 群";
         parent.addView(settingRow("版本与社区", communitySubtitle,
                 v -> showUpdateAndCommunityDialog()));
+        parent.addView(space(8));
+        parent.addView(settingRow("打赏作者", "请作者喝一杯奶茶", v -> showSponsorDialog()));
         parent.addView(space(18));
 
         Button logout = secondaryButton("退出登录");
@@ -880,7 +1082,7 @@ public class MainActivity extends Activity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception ignored) {
-            return "1.4.2";
+            return "1.4.3";
         }
     }
 
@@ -1011,7 +1213,7 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     AppPrefs.saveCourses(MainActivity.this, semesterName, courses);
                     ScheduleWidgetProvider.updateAll(MainActivity.this);
-                    requestNotificationPermissionIfNeeded();
+                    if (!AppPrefs.reminderMinutes(MainActivity.this).isEmpty()) requestNotificationPermissionIfNeeded();
                     ReminderScheduler.scheduleAll(MainActivity.this);
                     SyncScheduler.schedule(MainActivity.this, AppPrefs.updateFrequency(MainActivity.this));
                     syncing = false;
@@ -1079,10 +1281,20 @@ public class MainActivity extends Activity {
                 .show();
     }
     private void showReminderDialog() {
-        requestNotificationPermissionIfNeeded();
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(22), dp(4), dp(22), 0);
+
+        Set<Integer> current = AppPrefs.reminderMinutes(this);
+        CheckBox enable = new CheckBox(this);
+        enable.setText("启用上课提醒");
+        enable.setTextColor(textColor());
+        enable.setTextSize(15);
+        enable.setTypeface(Typeface.DEFAULT_BOLD);
+        enable.setButtonTintList(android.content.res.ColorStateList.valueOf(primary()));
+        enable.setChecked(!current.isEmpty());
+        panel.addView(enable);
+        panel.addView(space(8));
 
         TextView typeLabel = text("提醒方式", 14, textColor(), Typeface.BOLD);
         panel.addView(typeLabel);
@@ -1106,7 +1318,6 @@ public class MainActivity extends Activity {
         TextView timeLabel = text("提前时间", 14, textColor(), Typeface.BOLD);
         panel.addView(timeLabel);
         Integer[] options = {30, 15, 5};
-        Set<Integer> current = AppPrefs.reminderMinutes(this);
         CheckBox[] boxes = new CheckBox[options.length];
         for (int i = 0; i < options.length; i++) {
             CheckBox box = new CheckBox(this);
@@ -1118,13 +1329,27 @@ public class MainActivity extends Activity {
             boxes[i] = box;
             panel.addView(box);
         }
+        Runnable updateState = () -> {
+            boolean on = enable.isChecked();
+            typeGroup.setEnabled(on);
+            typeGroup.setAlpha(on ? 1f : 0.45f);
+            timeLabel.setAlpha(on ? 1f : 0.45f);
+            for (CheckBox box : boxes) {
+                box.setEnabled(on);
+                box.setAlpha(on ? 1f : 0.45f);
+            }
+        };
+        enable.setOnCheckedChangeListener((button, checked) -> updateState.run());
+        updateState.run();
 
         new AlertDialog.Builder(this)
                 .setTitle("上课提醒")
                 .setView(panel)
                 .setPositiveButton("保存", (dialog, which) -> {
                     LinkedHashSet<Integer> values = new LinkedHashSet<>();
-                    for (int i = 0; i < options.length; i++) if (boxes[i].isChecked()) values.add(options[i]);
+                    if (enable.isChecked()) {
+                        for (int i = 0; i < options.length; i++) if (boxes[i].isChecked()) values.add(options[i]);
+                    }
                     String type = alarm.isChecked()
                             ? AppPrefs.REMINDER_TYPE_ALARM : AppPrefs.REMINDER_TYPE_MESSAGE;
                     AppPrefs.setReminderType(this, type);
@@ -1132,8 +1357,9 @@ public class MainActivity extends Activity {
                     ReminderScheduler.scheduleAll(this);
                     toast(values.isEmpty() ? "已关闭上课提醒" : "提醒设置已保存");
                     render();
-                    if (!values.isEmpty() && AppPrefs.REMINDER_TYPE_ALARM.equals(type)) {
-                        requestExactAlarmPermissionIfNeeded();
+                    if (!values.isEmpty()) {
+                        if (!AppPrefs.reminderMinutes(MainActivity.this).isEmpty()) requestNotificationPermissionIfNeeded();
+                        if (AppPrefs.REMINDER_TYPE_ALARM.equals(type)) requestExactAlarmPermissionIfNeeded();
                     }
                 })
                 .setNegativeButton("取消", null)
@@ -1397,6 +1623,17 @@ public class MainActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

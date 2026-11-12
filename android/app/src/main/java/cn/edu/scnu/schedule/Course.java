@@ -163,7 +163,16 @@ public class Course {
         }
     }
 
+    public String timeKey() {
+        String identity = code == null || code.isEmpty() ? name : code;
+        return safeKey(identity) + "|" + safeKey(weekday) + "|" + safeKey(periods);
+    }
+
+    private String safeKey(String value) {
+        return value == null ? "" : value.replace("|", "/").trim();
+    }
     public String compactTime() {
         return (weekday == null ? "" : weekday) + "  " + (time == null ? "" : time);
     }
 }
+

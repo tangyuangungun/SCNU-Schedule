@@ -32,6 +32,7 @@ public final class AppPrefs {
     private static final String REMINDERS = "reminder_minutes";
     private static final String REMINDER_TYPE = "reminder_type";
     private static final String PRIVACY_ACCEPTED = "privacy_accepted";
+    private static final String COURSE_TIME_OVERRIDES = "course_time_overrides";
     private static final String LATEST_VERSION = "latest_version";
     private static final String LATEST_RELEASE_URL = "latest_release_url";
     private static final String LATEST_RELEASE_NOTES = "latest_release_notes";
@@ -164,15 +165,47 @@ public final class AppPrefs {
         List<Course> result = new ArrayList<>();
         try {
             JSONArray array = new JSONArray(prefs(context).getString(COURSES, "[]"));
+            JSONObject overrides = new JSONObject(prefs(context).getString(COURSE_TIME_OVERRIDES, "{}"));
             for (int i = 0; i < array.length(); i++) {
                 JSONObject o = array.optJSONObject(i);
-                if (o != null) result.add(Course.fromJson(o));
+                if (o == null) continue;
+                Course course = Course.fromJson(o);
+                String customTime = overrides.optString(course.timeKey(), "");
+                if (!customTime.isEmpty()) course.time = customTime;
+                result.add(course);
             }
         } catch (Exception ignored) {
         }
         return result;
     }
 
+    public static boolean hasCourseTimeOverride(Context context, Course course) {
+        return !getCourseTimeOverrides(context).optString(course.timeKey(), "").isEmpty();
+    }
+
+    public static void saveCourseTimeOverride(Context context, Course course, String start, String end) {
+        JSONObject overrides = getCourseTimeOverrides(context);
+        try {
+            overrides.put(course.timeKey(), start + "-" + end);
+        } catch (Exception ignored) {
+            return;
+        }
+        prefs(context).edit().putString(COURSE_TIME_OVERRIDES, overrides.toString()).apply();
+    }
+
+    public static void clearCourseTimeOverride(Context context, Course course) {
+        JSONObject overrides = getCourseTimeOverrides(context);
+        overrides.remove(course.timeKey());
+        prefs(context).edit().putString(COURSE_TIME_OVERRIDES, overrides.toString()).apply();
+    }
+
+    private static JSONObject getCourseTimeOverrides(Context context) {
+        try {
+            return new JSONObject(prefs(context).getString(COURSE_TIME_OVERRIDES, "{}"));
+        } catch (Exception ignored) {
+            return new JSONObject();
+        }
+    }
     public static String semester(Context context) {
         return prefs(context).getString(SEMESTER, "");
     }
@@ -207,7 +240,7 @@ public final class AppPrefs {
 
     public static Set<Integer> reminderMinutes(Context context) {
         LinkedHashSet<Integer> values = new LinkedHashSet<>();
-        String raw = prefs(context).getString(REMINDERS, "30,15");
+        String raw = prefs(context).getString(REMINDERS, "");
         for (String part : raw.split(",")) {
             try {
                 int value = Integer.parseInt(part.trim());
@@ -274,3 +307,7 @@ public final class AppPrefs {
         return "每周自动更新";
     }
 }
+
+
+
+

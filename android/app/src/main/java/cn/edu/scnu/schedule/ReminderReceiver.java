@@ -14,8 +14,13 @@ public class ReminderReceiver extends BroadcastReceiver {
         List<Course> courses = AppPrefs.courses(context);
         if (index < 0 || index >= courses.size()) return;
         Course course = courses.get(index);
+        if (!ReminderScheduler.shouldDeliverNow(course)) {
+            ReminderScheduler.scheduleCourse(context, index, lead);
+            return;
+        }
         NotificationHelper.showReminder(context, course, lead, AppPrefs.reminderType(context));
         ReminderScheduler.scheduleCourse(context, index, lead);
     }
 }
+
 
